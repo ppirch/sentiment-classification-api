@@ -12,20 +12,22 @@ from pythainlp.util import emoji_to_thai
 np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 class BILSTM_Model(torch.nn.Module) :
-    def __init__(self, vocab_size, embedding_dim, hidden_dim) :
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, num_layers=1) :
         super().__init__()
         self.hidden_dim = hidden_dim
         self.dropout = nn.Dropout(0.3)
         self.embeddings = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
-        self.linear = nn.Linear(hidden_dim, 4)
-        
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers, batch_first=True, bidirectional=True, dropout=0.2)
+        self.linear1 = nn.Linear(hidden_dim*2, hidden_dim)
+        self.linear2 = nn.Linear(hidden_dim, 4)
+
     def forward(self, x, s):
         x = self.embeddings(x)
         x = self.dropout(x)
         x_pack = pack_padded_sequence(x, s, batch_first=True, enforce_sorted=False)
         out_pack, (ht, ct) = self.lstm(x_pack)
-        return self.linear(ht[-1])
+        x = self.linear1(torch.cat((ht[-2,:,:], ht[-1,:,:]), dim = 1))
+        return self.linear2(x)
 
 def preprocess(text):
   def replace_rep(text):
@@ -50,7 +52,7 @@ def preprocess(text):
   preprocess_text = text.lower().strip()
   preprocess_text = replace_url(preprocess_text)
   preprocess_text = replace_rep(preprocess_text)
-  preprocess_text = replace_emoji(preprocess_text)
+  # preprocess_text = replace_emoji(preprocess_text)
   preprocess_text = replace_punctuation(preprocess_text)
   return preprocess_text
 
@@ -61,8 +63,8 @@ class MySentimentModel:
           self.vocab2index = pickle.load(f)
       with open("./dumps/id2label.pkl", "rb") as f:
           self.id2label = pickle.load(f)
-      self.model = BILSTM_Model(len(self.vocab2index), 300, 128)
-      self.model.load_state_dict(torch.load('./weights/bilstm_model.pth', map_location=torch.device('cpu')))
+      self.model = BILSTM_Model(len(self.vocab2index), 300, 256, 4)
+      self.model.load_state_dict(torch.load('./weights/stacked_bilstm_model.pth', map_location=torch.device('cpu')))
 
   def encode_sentence(self, text, vocab2index, N=70):
       tokenized = word_tokenize(text)
