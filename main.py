@@ -41,10 +41,10 @@ def read_root():
         "docs": "/docs"
     }
 
-@app.post("/predict", response_model=SentimentResponse)
+@app.post("/predict")
 def predict_sentiment(text: TextInput):
-    sentiment = model.predict(text.text)
-    return {"sentiment": sentiment}
+    sentiment, prob = model.predict(text.text)
+    return {"sentiment": sentiment, "probability": prob}
 
 
 if __name__ == "__main__":

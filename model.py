@@ -78,6 +78,8 @@ class MySentimentModel:
       preprocess_text = preprocess(text)
       x, l = self.encode_sentence(preprocess_text,self.vocab2index )
       x, l = torch.Tensor(x).long(), torch.Tensor([l]).long()
-      prediction = self.model(x.unsqueeze(0), l)[0].detach().numpy()
+      predict = self.model(x.unsqueeze(0), l)[0]
+      prob = nn.functional.softmax(predict, dim=-1).detach().numpy().tolist()
+      prediction = predict.detach().numpy()
       prediction_class = np.argmax(prediction)
-      return self.id2label[prediction_class]
+      return self.id2label[prediction_class], prob
